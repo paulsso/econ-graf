@@ -1,0 +1,4 @@
+yfinance==0.2.35
+influxdb-client==1.38.0
+pandas==2.1.4
+schedule==1.2.1 
