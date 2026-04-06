@@ -8,7 +8,7 @@ datasources:
     isDefault: true
     jsonData:
       version: Flux
-      organization: faang_stocks
-      defaultBucket: stock_data
+      organization: oecd_economics
+      defaultBucket: oecd_economic_data
     secureJsonData:
       token: my-super-secret-token 
