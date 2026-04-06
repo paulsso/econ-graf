@@ -1,13 +1,13 @@
 apiVersion: 1
 
 providers:
-  - name: 'FAANG Dashboard'
+  - name: "OECD Country Dashboards"
     orgId: 1
-    folder: ''
+    folder: "OECD"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
       path: /etc/grafana/provisioning/dashboards
-      foldersFromFilesStructure: true 
+      foldersFromFilesStructure: true

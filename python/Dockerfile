@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "stock_data_collector.py"] 
+CMD ["python", "oecd_data_collector.py"]
