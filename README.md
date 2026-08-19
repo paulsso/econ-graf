@@ -14,8 +14,8 @@ Countries covered: OECD members (38 countries).
 
 ## Stack
 
-- InfluxDB 2.0
-- Grafana
+- InfluxDB 2.0 (`oecd_economics` org, `oecd_economic_data` bucket)
+- Grafana 11.6 (provisioned InfluxDB datasource UID `influxdb-oecd`)
 - Python OECD collector (`requests` + `influxdb-client` + `schedule`)
 
 ## Prerequisites
@@ -23,30 +23,10 @@ Countries covered: OECD members (38 countries).
 - Docker Engine
 - Docker Compose v2
 
-Validate installation:
-
 ```bash
 docker --version
 docker compose version
 ```
-
-## First-time setup
-
-Create the InfluxDB env file expected by `docker-compose.yml`:
-
-```bash
-mkdir -p influxdb
-cat > influxdb/.env <<'EOF'
-INFLUXDB_INIT_MODE=setup
-INFLUXDB_INIT_USERNAME=admin
-INFLUXDB_INIT_PASSWORD=adminpassword
-INFLUXDB_INIT_ORG=oecd_economics
-INFLUXDB_INIT_BUCKET=oecd_economic_data
-INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
-EOF
-```
-
-> Note: `.env` files are ignored by git in this repository.
 
 ## Run
 
@@ -61,7 +41,15 @@ Expected services:
 - `grafana` on `3000`
 - `oecd_collector`
 
-## Verify (HTTP only)
+If Grafana was previously started with an older datasource config, reset its volume so provisioning can recreate the datasource UID:
+
+```bash
+docker compose down
+docker volume rm workspace_grafana-data
+docker compose up -d --build
+```
+
+## Verify
 
 InfluxDB:
 
@@ -75,16 +63,17 @@ Grafana:
 curl -sS http://localhost:3000/api/health
 ```
 
-Dashboards are provisioned (one per OECD country):
+Datasource UID must be `influxdb-oecd`:
+
+```bash
+curl -sS -u admin:admin http://localhost:3000/api/datasources \
+  | python3 -c "import json,sys; print([(d['name'], d['uid']) for d in json.load(sys.stdin)])"
+```
+
+Dashboards (one per OECD country):
 
 ```bash
 curl -sS -u admin:admin "http://localhost:3000/api/search?query=Economic Dashboard"
-```
-
-Collector process:
-
-```bash
-docker top oecd_collector
 ```
 
 ## Access
@@ -93,6 +82,8 @@ docker top oecd_collector
   - Username: `admin`
   - Password: `admin`
 - InfluxDB: http://localhost:8086
+
+Open **OECD** in the Grafana sidebar and pick a country dashboard. The default time range is the last 30 years.
 
 ## Logs
 
@@ -112,3 +103,4 @@ docker compose down -v
 
 - Data refresh runs daily at 02:00 UTC after an initial historical load at startup.
 - If outbound internet is restricted, the collector may fail to fetch from the World Bank API.
+- Country dashboards query the InfluxDB datasource by UID `influxdb-oecd`. If panels are empty, confirm that UID exists in Grafana Connections → Data sources.

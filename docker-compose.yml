@@ -15,16 +15,19 @@ services:
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.3
     container_name: grafana
     ports:
       - "3000:3000"
+    extra_hosts:
+      - "influxdb:host-gateway"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
     depends_on:
       - influxdb
 
@@ -35,10 +38,13 @@ services:
     volumes:
       - ./python:/app
     environment:
+      - PYTHONUNBUFFERED=1
       - INFLUXDB_URL=http://localhost:8086
       - INFLUXDB_TOKEN=my-super-secret-token
       - INFLUXDB_ORG=oecd_economics
       - INFLUXDB_BUCKET=oecd_economic_data
+    depends_on:
+      - influxdb
 
 volumes:
   influxdb-data:

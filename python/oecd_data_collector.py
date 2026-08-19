@@ -6,6 +6,8 @@ import requests
 import schedule
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # InfluxDB connection parameters
 INFLUXDB_URL = os.environ.get("INFLUXDB_URL", "http://influxdb:8086")
@@ -63,12 +65,31 @@ INDICATORS = {
 }
 
 
+def _http_session() -> requests.Session:
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        connect=5,
+        read=5,
+        backoff_factor=1,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("GET",),
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+HTTP = _http_session()
+
+
 def fetch_indicator_data(country_code: str, indicator_code: str) -> list[dict]:
     """Fetch annual economic indicator data from the free World Bank API."""
-    response = requests.get(
+    response = HTTP.get(
         WORLD_BANK_API.format(country=country_code, indicator=indicator_code),
         params={"format": "json", "per_page": 20000},
-        timeout=30,
+        timeout=60,
     )
     response.raise_for_status()
     payload = response.json()
@@ -79,7 +100,7 @@ def fetch_indicator_data(country_code: str, indicator_code: str) -> list[dict]:
 
 def fetch_and_store_economic_data():
     """Fetch OECD country indicators and store them in InfluxDB."""
-    print(f"Fetching OECD economic data at {datetime.now(timezone.utc).isoformat()}")
+    print(f"Fetching OECD economic data at {datetime.now(timezone.utc).isoformat()}", flush=True)
 
     with InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG) as client:
         write_api = client.write_api(write_options=SYNCHRONOUS)
@@ -110,17 +131,20 @@ def fetch_and_store_economic_data():
                             points.append(point)
                             valid_rows += 1
                         except (ValueError, TypeError) as parse_error:
-                            print(f"Skipping bad row for {country_code}/{indicator_code}: {parse_error}")
+                            print(
+                                f"Skipping bad row for {country_code}/{indicator_code}: {parse_error}",
+                                flush=True,
+                            )
 
-                    print(f"{country_code} {indicator_code}: prepared {valid_rows} points")
+                    print(f"{country_code} {indicator_code}: prepared {valid_rows} points", flush=True)
                 except Exception as exc:
-                    print(f"Error fetching {country_code}/{indicator_code}: {exc}")
+                    print(f"Error fetching {country_code}/{indicator_code}: {exc}", flush=True)
 
         if points:
             write_api.write(bucket=INFLUXDB_BUCKET, record=points)
-            print(f"Wrote {len(points)} OECD economic data points to InfluxDB")
+            print(f"Wrote {len(points)} OECD economic data points to InfluxDB", flush=True)
         else:
-            print("No economic data points were written in this cycle")
+            print("No economic data points were written in this cycle", flush=True)
 
 
 def wait_for_influxdb() -> bool:
@@ -133,15 +157,15 @@ def wait_for_influxdb() -> bool:
             with InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG) as client:
                 health = client.health()
                 if health.status == "pass":
-                    print("InfluxDB is ready!")
+                    print("InfluxDB is ready!", flush=True)
                     return True
         except Exception as exc:
-            print(f"InfluxDB not ready yet: {exc}")
+            print(f"InfluxDB not ready yet: {exc}", flush=True)
 
-        print(f"Waiting for InfluxDB to be ready... ({i + 1}/{max_retries})")
+        print(f"Waiting for InfluxDB to be ready... ({i + 1}/{max_retries})", flush=True)
         time.sleep(retry_interval)
 
-    print("Failed to connect to InfluxDB after multiple retries")
+    print("Failed to connect to InfluxDB after multiple retries", flush=True)
     return False
 
 
@@ -155,4 +179,4 @@ if __name__ == "__main__":
             schedule.run_pending()
             time.sleep(60)
     else:
-        print("Exiting due to InfluxDB connection failure")
+        print("Exiting due to InfluxDB connection failure", flush=True)
