@@ -2,13 +2,16 @@ apiVersion: 1
 
 datasources:
   - name: InfluxDB
+    uid: influxdb-oecd
     type: influxdb
     access: proxy
     url: http://influxdb:8086
     isDefault: true
+    editable: true
     jsonData:
       version: Flux
       organization: oecd_economics
       defaultBucket: oecd_economic_data
+      httpMode: POST
     secureJsonData:
-      token: my-super-secret-token 
+      token: my-super-secret-token
